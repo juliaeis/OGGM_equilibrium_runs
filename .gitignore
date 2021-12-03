@@ -1,0 +1,28 @@
+*.py[cod]
+__pycache__
+
+# PyCharm stuff
+.idea/
+
+# coverage stuff
+.coverage
+
+# Notebook stuff
+run_CMIP7/*checkpoints
+.ipynb_checkpoints
+
+# Tests stuff
+result_images
+.pytest_cache
+
+# Packages
+*.egg
+*.egg-info
+eggs
+
+# specific
+*.cache
+
+# following directories
+cmip6/*
+run_CMIP6/*
