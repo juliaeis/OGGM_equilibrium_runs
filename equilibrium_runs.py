@@ -62,6 +62,7 @@ def read_cmip6_data(path, gdirs, reset=False):
 def equilibrium_runs_yearly(gdir, gcm_list,years):
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     eq = np.zeros((len(gcm_list),len(years)))
+
     for i, gcm in enumerate(gcm_list):
         for j,yr in enumerate(years):
             random.seed(yr)
@@ -74,6 +75,7 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 fmod = FileModel(fp)
                 no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                 fmod.run_until(no_nan_yr)
+                print(fmod)
                 mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=1866,
                                          nyears=2000, unique_samples=True, output_filesuffix=gcm+'_'+str(yr),
                                          stop_criterion=f, seed=seed, init_model_fls = fmod.fls)
@@ -85,7 +87,7 @@ if __name__ == '__main__':
     # Initialize OGGM and set up the default run parameters
     cfg.initialize()
 
-    cfg.PATHS['working_dir'] = os.path.join('work_dir','run_CMIP6')
+    cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
 
     # Use multiprocessing?
     cfg.PARAMS['use_multiprocessing'] = True
@@ -103,8 +105,8 @@ if __name__ == '__main__':
 
     # read (reset=False) or process cmip6 data (reset=True)
     gcm_list = read_cmip6_data('cmip6', gdirs, reset=False)[:3]
-    years = range(1867, 1886)
+    years = range(1867, 1868)
 
     res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
     ds = compile_gcm_output(gdirs, gcm_list,years, res)
-    print(ds)
+    print(res)
