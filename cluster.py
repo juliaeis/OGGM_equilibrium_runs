@@ -115,7 +115,7 @@ if __name__ == '__main__':
     #gdirs = workflow.init_glacier_regions()
 
     # read (reset=False) or process cmip6 data (reset=True)
-    gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=False)
+    gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
     years = range(1867, 1868)
     print(gcm_list)
     # res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
