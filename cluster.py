@@ -16,7 +16,7 @@ from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
 def compile_gcm_output(gdirs, list, years, results):
 
-    fp = os.path.join(cfg.PATHS['working_dir'],'output', gdirs[0].rgi_region + '_equilibrium.nc')
+    fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium.nc')
     if os.path.exists(fp): os.remove(fp)
 
     ds = xr.Dataset()
@@ -117,7 +117,6 @@ if __name__ == '__main__':
     # read (reset=False) or process cmip6 data (reset=True)
     gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=False)
     years = range(1867, 1868)
-    print(gcm_list)
-    # res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
-    # ds = compile_gcm_output(gdirs, gcm_list,years, res)
-    # print(res)
+
+    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
+    ds = compile_gcm_output(gdirs, gcm_list,years, res)
