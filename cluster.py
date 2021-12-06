@@ -5,6 +5,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 import random
+import geopandas as gpd
 from functools import partial
 from time import gmtime, strftime
 # Locals
@@ -110,8 +111,17 @@ if __name__ == '__main__':
     # Make it large if you expect your glaciers to grow large
     cfg.PARAMS['border'] = 160
 
+    # RGI file
+    path = utils.get_rgi_region_file(REGION, version='61')
+    rgidf = gpd.read_file(path)
+    rgidf = rgidf.sort_values('Area', ascending=False)
+
+    # exclude non-landterminating glaciers
+    rgidf = rgidf[rgidf.TermType == 0]
+    rgidf = rgidf[rgidf.Connect != 2]
+
     # Go - initialize glacier directories
-    gdirs = workflow.init_glacier_regions(['RGI60-11.00897','RGI60-11.00779'], from_prepro_level=3, reset=False)
+    gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
     #gdirs = workflow.init_glacier_regions()
 
     # read (reset=False) or process cmip6 data (reset=True)
