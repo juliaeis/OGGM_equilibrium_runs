@@ -100,13 +100,13 @@ if __name__ == '__main__':
     cfg.PARAMS['border'] = 160
 
     # Go - initialize glacier directories
-    #gdirs = workflow.init_glacier_regions(['RGI60-11.00897','RGI60-11.00779'], from_prepro_level=3, reset=False)
+    gdirs = workflow.init_glacier_regions(['RGI60-11.00897','RGI60-11.00779'], from_prepro_level=3, reset=False)
     gdirs = workflow.init_glacier_regions()
 
     # read (reset=False) or process cmip6 data (reset=True)
-    gcm_list = read_cmip6_data('cmip6', gdirs, reset=False)[:3]
+    gcm_list = read_cmip6_data('cmip6', gdirs, reset=True)[:3]
     years = range(1867, 1868)
 
-    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
-    ds = compile_gcm_output(gdirs, gcm_list,years, res)
-    print(res)
+    #res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
+    #ds = compile_gcm_output(gdirs, gcm_list,years, res)
+    #print(res)

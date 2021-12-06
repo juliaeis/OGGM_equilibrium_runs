@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH --job-name=equilibrium_runs
-#SBATCH --partition=low
+#SBATCH --qos=normal
 #SBATCH --exclusive
 #SBATCH --array=11
 
@@ -9,6 +9,7 @@
 set -e
 
 # activate the conda environement
+eval "$(conda shell.bash hook)"
 conda activate oggm_env
 
 # On every node, when slurm starts a job, it will make sure the directory
