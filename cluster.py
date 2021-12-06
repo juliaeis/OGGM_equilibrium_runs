@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     # read (reset=False) or process cmip6 data (reset=True)
     gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
-    years = range(1867, 1868)
+    years = range(1866, 1999)
 
     res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
     ds = compile_gcm_output(gdirs, gcm_list,years, res)
