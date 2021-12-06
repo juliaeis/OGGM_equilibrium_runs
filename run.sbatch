@@ -16,17 +16,16 @@ conda activate oggm_env
 # /work/username exists and is writable by the jobs user.
 # We create a sub-directory there for this job to store its runtime data at.
 export WORKDIR="/work/${SLURM_JOB_USER}/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-export S_WORKDIR="$WORKDIR/run_CMIP6"
-export OUTDIR="$HOME/OGGM_equilibrium_runs/out"
+export PROJDIR ="$HOME/OGGM_equilibrium_runs"
+export OUTDIR="$PROJDIR/out"
 
-mkdir -p "$S_WORKDIR"
+mkdir -p "$WORKDIR"
 mkdir -p "$OUTDIR"
 
 export S_WORKDIR
 export OUTDIR
 
 echo "Workdir for this run: $S_WORKDIR"
-echo "$SLURM_ARRAY_TASK_ID"
 
 export REGION=$SLURM_ARRAY_TASK_ID
 
