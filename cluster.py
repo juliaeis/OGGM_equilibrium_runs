@@ -2,6 +2,7 @@
 import os
 import matplotlib.pyplot as plt
 import xarray as xr
+import time
 import pandas as pd
 import numpy as np
 import random
@@ -37,9 +38,17 @@ def compile_gcm_output(gdirs, list, years, results):
     ds['year'].attrs['description'] = 'central year of random climate used to create the equilibrium glacier'
 
     # Variables
-    ds['equilibrium'] = (('rgi_id', 'gcm', 'year'), results)
+    ds['equilibrium'] = (('rgi_id', 'gcm', 'year'), [res[0] for res in results])
     ds['equilibrium'].attrs['description'] = 'total glacier volume of equilibrium glacier'
     ds['equilibrium'].attrs['units'] = 'km 3'
+
+    ds['equilibrium_area'] = (('rgi_id', 'gcm', 'year'), [res[1] for res in results])
+    ds['equilibrium_area'].attrs['description'] = 'total glacier area of equilibrium glaciers'
+    ds['equilibrium_area'].attrs['units'] = 'km 2'
+
+    ds['run_time'] = (('rgi_id'), [res[1] for res in results])
+    ds['run_time'].attrs['description'] = 'total runtime for glacier'
+    ds['run_time'].attrs['units'] = 'sec.'
 
     ds.to_netcdf(fp)
     return ds
@@ -60,33 +69,36 @@ def read_cmip6_data(path, gdirs, reset=False):
     return l
 
 def equilibrium_runs_yearly(gdir, gcm_list,years):
+    t0 = time.time()
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
-    eq = np.zeros((len(gcm_list),len(years)))
-
+    eq_vol = np.zeros((len(gcm_list), len(years)))
+    eq_area = np.zeros((len(gcm_list), len(years)))
     for i, gcm in enumerate(gcm_list):
-        for j,yr in enumerate(years):
+        for j, yr in enumerate(years):
             random.seed(yr)
             seed = random.randint(0, 2000)
             if yr == 1866:
                 tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
-                                         nyears=2000, unique_samples=True, output_filesuffix=gcm+'_'+str(yr), seed=seed)
+                                         nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
+                                         seed=seed)
             else:
-                fp = gdir.get_filepath('model_geometry', filesuffix=gcm+'_'+str(yr-1))
+                fp = gdir.get_filepath('model_geometry', filesuffix=gcm + '_' + str(yr - 1))
                 fmod = FileModel(fp)
                 no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                 fmod.run_until(no_nan_yr)
-                print(fmod)
                 mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=1866,
-                                         nyears=2000, unique_samples=True, output_filesuffix=gcm+'_'+str(yr),
-                                         stop_criterion=f, seed=seed, init_model_fls = fmod.fls)
-                eq[i, j] = mod.volume_km3
-    return eq
+                                               nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
+                                               stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
+                eq_vol[i, j] = mod.volume_km3
+                eq_area[i, j] = mod.area_km2
+    t1 = time.time()
+    return eq_vol, t1 - t0
 
 if __name__ == '__main__':
 
     # Initialize OGGM and set up the default run parameters
     cfg.initialize()
-
+    cfg.initialize()
     ON_CLUSTER = True
 
     # Local paths
@@ -119,6 +131,14 @@ if __name__ == '__main__':
     # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType == 0]
     rgidf = rgidf[rgidf.Connect != 2]
+
+    # select classes by area to make a check for the running time
+    cat1 = pd.cut(rgidf.Area[rgidf.Area > 1], bins=10, labels=range(10)).astype('float')
+    cat2 = pd.cut(rgidf.Area[rgidf.Area < 1], bins=30, labels=range(10, 40)).astype('float')
+    rgidf.loc[cat1.index, 'category'] = cat1
+    rgidf.loc[cat2.index, 'category'] = cat2
+
+    rgidf = rgidf.drop_duplicates(subset='category', keep='last')
 
     # Go - initialize glacier directories
     gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)

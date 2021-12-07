@@ -1,6 +1,7 @@
 # Libs
 import os
 import matplotlib.pyplot as plt
+import time
 import xarray as xr
 import pandas as pd
 import numpy as np
@@ -37,9 +38,17 @@ def compile_gcm_output(gdirs, list, years, results):
     ds['year'].attrs['description'] = 'central year of random climate used to create the equilibrium glacier'
 
     # Variables
-    ds['equilibrium'] = (('rgi_id', 'gcm', 'year'), results)
-    ds['equilibrium'].attrs['description'] = 'total glacier volume of equilibrium glacier'
+    ds['equilibrium'] = (('rgi_id', 'gcm', 'year'), [res[0] for res in results])
+    ds['equilibrium'].attrs['description'] = 'total glacier volume of equilibrium glaciers'
     ds['equilibrium'].attrs['units'] = 'km 3'
+
+    ds['equilibrium_area'] = (('rgi_id', 'gcm', 'year'), [res[1] for res in results])
+    ds['equilibrium_area'].attrs['description'] = 'total glacier area of equilibrium glaciers'
+    ds['equilibrium_area'].attrs['units'] = 'km 2'
+
+    ds['run_time'] = (('rgi_id'), [res[2] for res in results])
+    ds['run_time'].attrs['description'] = 'total runtime for glacier'
+    ds['run_time'].attrs['units'] = 'sec.'
 
     ds.to_netcdf(fp)
     return ds
@@ -60,9 +69,10 @@ def read_cmip6_data(path, gdirs, reset=False):
     return l
 
 def equilibrium_runs_yearly(gdir, gcm_list,years):
+    t0 = time.time()
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
-    eq = np.zeros((len(gcm_list),len(years)))
-
+    eq_vol = np.zeros((len(gcm_list),len(years)))
+    eq_area = np.zeros((len(gcm_list), len(years)))
     for i, gcm in enumerate(gcm_list):
         for j,yr in enumerate(years):
             random.seed(yr)
@@ -75,18 +85,19 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 fmod = FileModel(fp)
                 no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                 fmod.run_until(no_nan_yr)
-                print(fmod)
                 mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=1866,
                                          nyears=2000, unique_samples=True, output_filesuffix=gcm+'_'+str(yr),
                                          stop_criterion=f, seed=seed, init_model_fls = fmod.fls)
-                eq[i, j] = mod.volume_km3
-    return eq
+                eq_vol[i, j] = mod.volume_km3
+                eq_area[i, j] = mod.area_km2
+    t1 = time.time()
+    return eq_vol, eq_area, t1-t0
 
 if __name__ == '__main__':
 
     # Initialize OGGM and set up the default run parameters
     cfg.initialize()
-
+    cfg.set_logging_config(logging_level='WARNING')
     cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
 
     # Use multiprocessing?
@@ -100,13 +111,13 @@ if __name__ == '__main__':
     cfg.PARAMS['border'] = 160
 
     # Go - initialize glacier directories
-    gdirs = workflow.init_glacier_regions(['RGI60-11.00897','RGI60-11.00779'], from_prepro_level=3, reset=False)
+    #gdirs = workflow.init_glacier_regions(['RGI60-11.00897','RGI60-11.00779'], from_prepro_level=3, reset=False)
     gdirs = workflow.init_glacier_regions()
 
     # read (reset=False) or process cmip6 data (reset=True)
-    gcm_list = read_cmip6_data('cmip6', gdirs, reset=True)[:3]
+    gcm_list = read_cmip6_data('cmip6', gdirs, reset=False)[:3]
     years = range(1867, 1868)
 
-    #res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
-    #ds = compile_gcm_output(gdirs, gcm_list,years, res)
-    #print(res)
+    result = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
+    ds = compile_gcm_output(gdirs, gcm_list,years, result)
+    print(ds)
