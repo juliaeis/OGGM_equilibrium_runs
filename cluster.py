@@ -91,6 +91,7 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                                                stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
                 eq_vol[i, j] = mod.volume_km3
                 eq_area[i, j] = mod.area_km2
+    print(gdir.rgi_id+' finished')
     t1 = time.time()
     return eq_vol, t1 - t0
 
