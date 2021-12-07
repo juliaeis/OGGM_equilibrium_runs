@@ -15,9 +15,9 @@ conda activate oggm_env
 # On every node, when slurm starts a job, it will make sure the directory
 # /work/username exists and is writable by the jobs user.
 # We create a sub-directory there for this job to store its runtime data at.
-export WORKDIR="/work/${SLURM_JOB_USER}/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
-export PROJDIR ="$HOME/OGGM_equilibrium_runs"
-export OUTDIR="$PROJDIR/out"
+export WORKDIR="/work/${SLURM_JOB_USER}/run_CMIP6"
+export PROJDIR="$HOME/OGGM_equilibrium_runs"
+export OUTDIR="$PROJDIR/out/"
 
 mkdir -p "$WORKDIR"
 mkdir -p "$OUTDIR"
@@ -43,4 +43,4 @@ echo "DONE"
 # $SLURM_SUBMIT_DIR points to the directory from where the job was initially commited.
 
 # Copy any neccesary result data.
-cp -r "${S_WORKDIR}" "${OUTDIR}"
+cp -r "${WORKDIR}" "${OUTDIR}"

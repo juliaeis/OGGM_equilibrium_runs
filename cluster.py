@@ -46,7 +46,7 @@ def compile_gcm_output(gdirs, list, years, results):
     ds['equilibrium_area'].attrs['description'] = 'total glacier area of equilibrium glaciers'
     ds['equilibrium_area'].attrs['units'] = 'km 2'
 
-    ds['run_time'] = (('rgi_id'), [res[1] for res in results])
+    ds['run_time'] = (('rgi_id'), [res[2] for res in results])
     ds['run_time'].attrs['description'] = 'total runtime for glacier'
     ds['run_time'].attrs['units'] = 'sec.'
 
@@ -93,13 +93,13 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 eq_area[i, j] = mod.area_km2
     print(gdir.rgi_id+' finished')
     t1 = time.time()
-    return eq_vol, t1 - t0
+    return eq_vol, eq_area, t1 - t0
 
 if __name__ == '__main__':
 
     # Initialize OGGM and set up the default run parameters
     cfg.initialize()
-    cfg.initialize()
+    cfg.set_logging_config(logging_level='WARNING')
     ON_CLUSTER = True
 
     # Local paths
@@ -108,7 +108,6 @@ if __name__ == '__main__':
         cfg.PATHS['working_dir'] = WORKING_DIR
         OUT_DIR = os.environ.get("OUTDIR")
         REGION = str(os.environ.get('REGION')).zfill(2)
-        print(REGION)
         cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6')
     else:
         cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
@@ -146,8 +145,9 @@ if __name__ == '__main__':
     #gdirs = workflow.init_glacier_regions()
 
     # read (reset=False) or process cmip6 data (reset=True)
-    gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=False)
-    years = range(1867, 1868)
+    gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
+    years = range(1866, 1999)
 
     res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
     ds = compile_gcm_output(gdirs, gcm_list,years, res)
+
