@@ -2,7 +2,7 @@
 #
 #SBATCH --job-name=equilibrium_runs
 #SBATCH --qos=normal
-#SBATCH --exclusive
+#SBATCH --ntasks=10
 #SBATCH --array=11
 
 # Abort whenever a single step fails. Without this, bash will just continue on errors.

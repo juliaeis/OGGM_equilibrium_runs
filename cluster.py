@@ -142,7 +142,7 @@ if __name__ == '__main__':
     rgidf.loc[cat1.index, 'category'] = cat1
     rgidf.loc[cat2.index, 'category'] = cat2
 
-    rgidf = rgidf.drop_duplicates(subset='category', keep='last')
+    rgidf = rgidf.drop_duplicates(subset='category', keep='last').tail(10)
 
     # Go - initialize glacier directories
     gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
