@@ -17,9 +17,9 @@ from oggm import tasks, workflow, utils
 from oggm.workflow import execute_entity_task
 from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
-def compile_gcm_output(gdirs, list, years, results):
+def compile_gcm_output(gdirs, list, years, results,JOB_NR):
 
-    fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium.nc')
+    fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(JOB_NR)+'.nc')
     if os.path.exists(fp): os.remove(fp)
 
     ds = xr.Dataset()
@@ -114,7 +114,9 @@ if __name__ == '__main__':
         WORKING_DIR = os.environ.get("WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
         OUT_DIR = os.environ.get("OUTDIR")
-        REGION = str(os.environ.get('REGION')).zfill(2)
+        #REGION = str(os.environ.get('REGION')).zfill(2)
+        REGION='11'
+        JOB_NR = os.environ.get('JOB_NR')
         cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6')
     else:
         cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
@@ -139,14 +141,7 @@ if __name__ == '__main__':
     rgidf = rgidf[rgidf.TermType == 0]
     rgidf = rgidf[rgidf.Connect != 2]
 
-    # select classes by area to make a check for the running time
-    cat1 = pd.cut(rgidf.Area[rgidf.Area > 1], bins=10, labels=range(10)).astype('float')
-    cat2 = pd.cut(rgidf.Area[rgidf.Area < 1], bins=30, labels=range(10, 40)).astype('float')
-    rgidf.loc[cat1.index, 'category'] = cat1
-    rgidf.loc[cat2.index, 'category'] = cat2
-
-    rgidf = rgidf.drop_duplicates(subset='category', keep='last')
-
+    rgidf = rgidf[JOB_NR:len(rgidf):15]
     # Go - initialize glacier directories
     gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
     #gdirs = workflow.init_glacier_regions()
@@ -156,5 +151,5 @@ if __name__ == '__main__':
     years = range(1866, 1999)
 
     res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
-    ds = compile_gcm_output(gdirs, gcm_list,years, res)
+    ds = compile_gcm_output(gdirs, gcm_list,years, res, JOB_NR)
 
