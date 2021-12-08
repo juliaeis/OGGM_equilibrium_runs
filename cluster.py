@@ -9,6 +9,7 @@ import random
 import geopandas as gpd
 from functools import partial
 from time import gmtime, strftime
+import logging
 # Locals
 import oggm
 import oggm.cfg as cfg
@@ -46,7 +47,7 @@ def compile_gcm_output(gdirs, list, years, results):
     ds['equilibrium_area'].attrs['description'] = 'total glacier area of equilibrium glaciers'
     ds['equilibrium_area'].attrs['units'] = 'km 2'
 
-    ds['run_time'] = (('rgi_id'), [res[2] for res in results])
+    ds['run_time'] = (('rgi_id', 'gcm', 'year'), [res[2] for res in results])
     ds['run_time'].attrs['description'] = 'total runtime for glacier'
     ds['run_time'].attrs['units'] = 'sec.'
 
@@ -69,16 +70,18 @@ def read_cmip6_data(path, gdirs, reset=False):
     return l
 
 def equilibrium_runs_yearly(gdir, gcm_list,years):
-    t0 = time.time()
+
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     eq_vol = np.zeros((len(gcm_list), len(years)))
     eq_area = np.zeros((len(gcm_list), len(years)))
+    t_array = np.zeros((len(gcm_list), len(years)))
     for i, gcm in enumerate(gcm_list):
         for j, yr in enumerate(years):
             random.seed(yr)
             seed = random.randint(0, 2000)
+            t0 = time.time()
             if yr == 1866:
-                tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
+                mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
                                          nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                          seed=seed)
             else:
@@ -86,14 +89,15 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 fmod = FileModel(fp)
                 no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                 fmod.run_until(no_nan_yr)
-                mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=1866,
+                mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
                                                nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                                stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
-                eq_vol[i, j] = mod.volume_km3
-                eq_area[i, j] = mod.area_km2
-    print(gdir.rgi_id+' finished')
-    t1 = time.time()
-    return eq_vol, eq_area, t1 - t0
+            eq_vol[i, j] = mod.volume_km3
+            eq_area[i, j] = mod.area_km2
+            t_array[i,j] = time.time()-t0
+    logging.warning(gdir.rgi_id+' finished')
+
+    return eq_vol, eq_area, t_array
 
 if __name__ == '__main__':
 
