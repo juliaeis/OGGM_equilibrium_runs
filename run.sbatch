@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-#SBATCH --job-name=equilibrium_runs
-#SBATCH --qos=normal
-#SBATCH --ntasks=10
-#SBATCH --array=11
+#SBATCH --job-name=equilibrium_alps
+#SBATCH --qos=low
+#SBATCH --exclusive
+#SBATCH --array=0-14
 
 # Abort whenever a single step fails. Without this, bash will just continue on errors.
 set -e
@@ -27,7 +27,8 @@ export OUTDIR
 
 echo "Workdir for this run: $S_WORKDIR"
 
-export REGION=$SLURM_ARRAY_TASK_ID
+#export REGION=$SLURM_ARRAY_TASK_ID
+export JOB_NR=$SLURM_ARRAY_TASK_ID
 
 export OGGM_DOWNLOAD_CACHE="/home/data/download"
 export OGGM_DOWNLOAD_CACHE_RO=1
