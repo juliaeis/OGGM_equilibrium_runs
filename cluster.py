@@ -104,6 +104,15 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
 
     return eq_vol, eq_area, t_array
 
+def select_subset(n,job_nr,max_len):
+    l = []
+    for i in range(0,math.ceil(len(rgi16)/n),n):
+        x = n*i+(n*job_nr)
+        l=l+list(range(x,x+n))
+    l = np.array(l)
+    l = l[l<max_len]
+    return l
+
 if __name__ == '__main__':
 
     # Initialize OGGM and set up the default run parameters
@@ -116,9 +125,9 @@ if __name__ == '__main__':
         WORKING_DIR = os.environ.get("WORKDIR")
         cfg.PATHS['working_dir'] = WORKING_DIR
         OUT_DIR = os.environ.get("OUTDIR")
-        #REGION = str(os.environ.get('REGION')).zfill(2)
-        REGION='11'
+        REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR = os.environ.get('JOB_NR')
+        N = os.environ.get('N')
         cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6')
     else:
         cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
@@ -141,9 +150,11 @@ if __name__ == '__main__':
 
     # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType == 0]
-    rgidf = rgidf[rgidf.Connect != 2]
+    rgidf = rgidf[rgidf.Connect != 2].reset_index()
 
-    rgidf = rgidf[JOB_NR:len(rgidf):15]
+    subset_indices = select_subset(N,JOB_NR,len(rgidf))
+
+    rgidf = rgidf.iloc[subset_indices]
     # Go - initialize glacier directories
     gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
     #gdirs = workflow.init_glacier_regions()
