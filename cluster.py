@@ -76,6 +76,8 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
     eq_area = np.zeros((len(gcm_list), len(years)))*np.nan
     t_array = np.zeros((len(gcm_list), len(years)))*np.nan
     for i, gcm in enumerate(gcm_list):
+        c = xr.open_dataset(gdirs[0].get_filepath('gcm_data', filesuffix=gcm))
+        years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
         for j, yr in enumerate(years):
             random.seed(yr)
             seed = random.randint(0, 2000)
