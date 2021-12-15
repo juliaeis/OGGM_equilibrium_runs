@@ -9,6 +9,7 @@ import random
 import geopandas as gpd
 from functools import partial
 from time import gmtime, strftime
+import math
 import logging
 # Locals
 import oggm
@@ -76,7 +77,7 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
     eq_area = np.zeros((len(gcm_list), len(years)))*np.nan
     t_array = np.zeros((len(gcm_list), len(years)))*np.nan
     for i, gcm in enumerate(gcm_list):
-        c = xr.open_dataset(gdirs[0].get_filepath('gcm_data', filesuffix=gcm))
+        c = xr.open_dataset(gdir.get_filepath('gcm_data', filesuffix=gcm))
         years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
         for j, yr in enumerate(years):
             random.seed(yr)
@@ -108,8 +109,8 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
 
 def select_subset(n,job_nr,max_len):
     l = []
-    for i in range(0,math.ceil(len(rgi16)/n),n):
-        x = n*i+(n*job_nr)
+    for i in range(0,math.ceil(max_len/n),n):
+        x = int(n*i+(n*job_nr))
         l=l+list(range(x,x+n))
     l = np.array(l)
     l = l[l<max_len]
@@ -128,8 +129,8 @@ if __name__ == '__main__':
         cfg.PATHS['working_dir'] = WORKING_DIR
         OUT_DIR = os.environ.get("OUTDIR")
         REGION = str(os.environ.get('REGION')).zfill(2)
-        JOB_NR = os.environ.get('JOB_NR')
-        N = os.environ.get('N')
+        JOB_NR = float(os.environ.get('JOB_NR'))
+        N = int(os.environ.get('N'))
         cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6')
     else:
         cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
@@ -155,8 +156,8 @@ if __name__ == '__main__':
     rgidf = rgidf[rgidf.Connect != 2].reset_index()
 
     subset_indices = select_subset(N,JOB_NR,len(rgidf))
-
     rgidf = rgidf.iloc[subset_indices]
+
     # Go - initialize glacier directories
     gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
     #gdirs = workflow.init_glacier_regions()
