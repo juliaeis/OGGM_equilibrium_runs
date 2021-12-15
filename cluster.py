@@ -95,6 +95,8 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                     mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
                                                    nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                                    stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
+                    # if run was sucessfull, we don't need the file for init_mod any more --> remove file
+                    os.remove(fp)
                 eq_vol[i, j] = mod.volume_km3
                 eq_area[i, j] = mod.area_km2
                 t_array[i,j] = time.time()-t0
