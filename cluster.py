@@ -20,7 +20,11 @@ from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
 def compile_gcm_output(gdirs, list, years, results,JOB_NR):
 
-    fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(int(JOB_NR))+'.nc')
+    dir = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region)
+    utils.mkdir(dir)
+    fp = os.path.join(dir, 'equilibrium_'+gdirs[0].rgi_id+'.nc')
+    #fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(JOB_NR)+'.nc')
+
     if os.path.exists(fp): os.remove(fp)
 
     ds = xr.Dataset()
@@ -130,7 +134,6 @@ if __name__ == '__main__':
         OUT_DIR = os.environ.get("OUTDIR")
         REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR = float(os.environ.get('JOB_NR'))
-        N = int(os.environ.get('N'))
         cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6')
     else:
         cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
@@ -149,14 +152,23 @@ if __name__ == '__main__':
     # RGI file
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
-    rgidf = rgidf.sort_values('Area', ascending=False)
+    rgidf = rgidf.sort_values('Area', ascending=True)
 
     # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType == 0]
-    rgidf = rgidf[rgidf.Connect != 2].reset_index()
+    rgidf = rgidf[rgidf.Connect != 2]
 
-    subset_indices = select_subset(N,JOB_NR,len(rgidf))
-    rgidf = rgidf.iloc[subset_indices]
+    # exculde glaciers that failed during preprocessing
+    url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/centerlines/qc3/pcp2.5/no_match/RGI62/b_160/L3/summary/'
+    fpath = utils.file_downloader(url + f'glacier_statistics_{REGION}.csv')
+    stat = pd.read_csv(fpath, index_col=0,low_memory=False)
+    rgidf = rgidf[~rgidf.RGIId.isin(stat.error_task.dropna().index)].reset_index()
+
+    #subset_indices = select_subset(N,JOB_NR,len(rgidf))
+    #rgidf = rgidf.iloc[subset_indices]
+
+    #select glacier by JOB_NR
+    rgidf = rgidf.iloc[[JOB_NR]]
 
     # Go - initialize glacier directories
     gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
