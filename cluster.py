@@ -20,7 +20,7 @@ from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
 def compile_gcm_output(gdirs, list, years, results,JOB_NR):
 
-    fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(JOB_NR)+'.nc')
+    fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(int(JOB_NR))+'.nc')
     if os.path.exists(fp): os.remove(fp)
 
     ds = xr.Dataset()
