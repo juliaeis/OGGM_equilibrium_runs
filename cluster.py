@@ -79,6 +79,10 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
     eq_vol = np.zeros((len(gcm_list), len(years)))*np.nan
     eq_area = np.zeros((len(gcm_list), len(years)))*np.nan
     t_array = np.zeros((len(gcm_list), len(years)))*np.nan
+
+    #create dataset that merges all model_diagnostic files of this glacier
+    diag_ds = xr.Dataset()
+
     for i, gcm in enumerate(gcm_list):
         c = xr.open_dataset(gdir.get_filepath('gcm_data', filesuffix=gcm))
         years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
@@ -87,10 +91,12 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
             seed = random.randint(0, 2000)
             t0 = time.time()
             try:
+                # in the first year (1866), we don't use the stopping criteria to make sure, we really end up in an equilibrium state
                 if yr == 1866:
                     mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
                                              nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                              seed=seed)
+                # for all other years the previous equilibrium state is the initial condition and we use the stopping criteria
                 else:
                     fp = gdir.get_filepath('model_geometry', filesuffix=gcm + '_' + str(yr - 1))
                     fmod = FileModel(fp)
@@ -106,6 +112,24 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 t_array[i,j] = time.time()-t0
             except:
                 pass
+
+            # read, merge and delete the current model_diagnotics file
+            try:
+                dp = gdir.get_filepath('model_diagnostics', filesuffix=gcm + '_' + str(yr))
+                diag = xr.open_dataset(dp)
+                diag = diag.expand_dims(['gcm', 'year'])
+                diag.coords['gcm'] = ('gcm', [gcm])
+                diag.coords['year'] = ('year', [yr])
+                diag_ds = xr.merge([diag_ds, diag])
+                os.remove(dp)
+            except:
+                pass
+    # Global attributes
+    diag_ds.attrs['description'] = 'OGGM model output'
+    diag_ds.attrs['oggm_version'] = oggm.__version__
+    diag_ds.attrs['calendar'] = '365-day no leap'
+    diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    diag_ds.to_netcdf(os.path.join(gdir.dir, 'model_diagnostics_merged.nc'))
     logging.warning(gdir.rgi_id+' finished')
 
     return eq_vol, eq_area, t_array
