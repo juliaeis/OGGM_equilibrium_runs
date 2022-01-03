@@ -20,10 +20,11 @@ from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
 def compile_gcm_output(gdirs, list, years, results,JOB_NR):
 
-    dir = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region)
+    dir = os.path.join(cfg.PATHS['working_dir'], 'region_'+gdirs[0].rgi_region)
     utils.mkdir(dir)
     fp = os.path.join(dir, 'equilibrium_'+gdirs[0].rgi_id+'.nc')
     #fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(JOB_NR)+'.nc')
+
     if os.path.exists(fp): os.remove(fp)
 
     ds = xr.Dataset()
@@ -74,7 +75,7 @@ def read_cmip6_data(path, gdirs, reset=False):
     return l
 
 def equilibrium_runs_yearly(gdir, gcm_list,years):
-
+    logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     eq_vol = np.zeros((len(gcm_list), len(years)))*np.nan
     eq_area = np.zeros((len(gcm_list), len(years)))*np.nan
@@ -124,12 +125,14 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 os.remove(dp)
             except:
                 pass
+        logging.warning(gcm + ' done')
     # Global attributes
     diag_ds.attrs['description'] = 'OGGM model output'
     diag_ds.attrs['oggm_version'] = oggm.__version__
     diag_ds.attrs['calendar'] = '365-day no leap'
     diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
     diag_ds.to_netcdf(os.path.join(gdir.dir, 'model_diagnostics_merged.nc'))
+    
     logging.warning(gdir.rgi_id+' finished')
 
     return eq_vol, eq_area, t_array

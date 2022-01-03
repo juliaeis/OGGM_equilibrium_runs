@@ -1,11 +1,14 @@
 #!/bin/bash
 #
-#SBATCH --job-name=equilibrium_alps
-#SBATCH --qos=low
+#SBATCH --job-name=10_eq
+#SBATCH --qos=idle --requeue
 #SBATCH --exclusive
-#SBATCH --array=0-14
+#SBATCH --array=11-29
+#SBATCH --time=1-00:00:00
+
 
 # Abort whenever a single step fails. Without this, bash will just continue on errors.
+
 set -e
 
 # activate the conda environement
@@ -25,9 +28,10 @@ mkdir -p "$OUTDIR"
 export S_WORKDIR
 export OUTDIR
 
-echo "Workdir for this run: $S_WORKDIR"
+echo "Workdir for this run: $WORKDIR"
 
-#export REGION=$SLURM_ARRAY_TASK_ID
+export N=30
+export REGION=10
 export JOB_NR=$SLURM_ARRAY_TASK_ID
 
 export OGGM_DOWNLOAD_CACHE="/home/data/download"
