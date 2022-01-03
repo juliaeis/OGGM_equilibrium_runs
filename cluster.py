@@ -20,7 +20,7 @@ from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
 def compile_gcm_output(gdirs, list, years, results,JOB_NR):
 
-    dir = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region)
+    dir = os.path.join(cfg.PATHS['working_dir'], 'region_'+gdirs[0].rgi_region)
     utils.mkdir(dir)
     fp = os.path.join(dir, 'equilibrium_'+gdirs[0].rgi_id+'.nc')
     #fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(JOB_NR)+'.nc')
@@ -75,7 +75,7 @@ def read_cmip6_data(path, gdirs, reset=False):
     return l
 
 def equilibrium_runs_yearly(gdir, gcm_list,years):
-
+    logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     eq_vol = np.zeros((len(gcm_list), len(years)))*np.nan
     eq_area = np.zeros((len(gcm_list), len(years)))*np.nan
@@ -107,6 +107,7 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                 t_array[i,j] = time.time()-t0
             except:
                 pass
+        logging.warning(gcm+' done')
     logging.warning(gdir.rgi_id+' finished')
 
     return eq_vol, eq_area, t_array
