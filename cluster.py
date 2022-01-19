@@ -18,12 +18,11 @@ from oggm import tasks, workflow, utils
 from oggm.workflow import execute_entity_task
 from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
-def compile_gcm_output(gdirs, list, years, results,JOB_NR):
+def compile_gcm_output(gdirs, list, results):
 
     dir = os.path.join(cfg.PATHS['working_dir'], 'region_'+gdirs[0].rgi_region)
     utils.mkdir(dir)
     fp = os.path.join(dir, 'equilibrium_'+gdirs[0].rgi_id+'.nc')
-    #fp = os.path.join(cfg.PATHS['working_dir'], gdirs[0].rgi_region + '_equilibrium_'+str(JOB_NR)+'.nc')
 
     if os.path.exists(fp): os.remove(fp)
 
@@ -40,7 +39,7 @@ def compile_gcm_output(gdirs, list, years, results,JOB_NR):
     ds['rgi_id'].attrs['description'] = 'RGI glacier identifier'
     ds.coords['gcm'] = ('gcm', list)
     ds['gcm'].attrs['description'] = ' CMIP6 scenario'
-    ds.coords['year'] = ('year', years)
+    ds.coords['year'] = ('year', range(1866,2020))
     ds['year'].attrs['description'] = 'central year of random climate used to create the equilibrium glacier'
 
     # Variables
@@ -61,31 +60,39 @@ def compile_gcm_output(gdirs, list, years, results,JOB_NR):
 
 
 def read_cmip6_data(path, gdirs, reset=False):
-    l = []
+    l = ['CRU']
     for file in os.listdir(os.path.join(path,'tas')):
         if file.endswith('.nc'):
             name = file.split('_')[0]
             suffix = name.split('.')[2]
-            l.append(suffix)
             tas_file = os.path.join(path, 'tas', file)
             pr_file = os.path.join(path, 'pr', name + '_pr.nc')
             if reset:
                 execute_entity_task(tasks.process_cmip_data, gdirs, filesuffix=suffix, fpath_temp=tas_file,
                                     fpath_precip=pr_file)
+            l.append(suffix)
     return l
 
-def equilibrium_runs_yearly(gdir, gcm_list,years):
+def equilibrium_runs_yearly(gdir, gcm_list):
     logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
-    eq_vol = np.zeros((len(gcm_list), len(years)))*np.nan
-    eq_area = np.zeros((len(gcm_list), len(years)))*np.nan
-    t_array = np.zeros((len(gcm_list), len(years)))*np.nan
+    # maximum 2019-1866=153 years
+    eq_vol = np.zeros((len(gcm_list), 153))*np.nan
+    eq_area = np.zeros((len(gcm_list), 153))*np.nan
+    t_array = np.zeros((len(gcm_list), 153))*np.nan
 
     #create dataset that merges all model_diagnostic files of this glacier
     diag_ds = xr.Dataset()
 
     for i, gcm in enumerate(gcm_list):
-        c = xr.open_dataset(gdir.get_filepath('gcm_data', filesuffix=gcm))
+        if gcm != 'CRU':
+            climate_filename='gcm_data'
+            input_suffix=gcm
+        else:
+            climate_filename='climate_historical'
+            input_suffix=None
+
+        c = xr.open_dataset(gdir.get_filepath(climate_filename, filesuffix=input_suffix))
         years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
         for j, yr in enumerate(years):
             random.seed(yr)
@@ -94,7 +101,7 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
             try:
                 # in the first year (1866), we don't use the stopping criteria to make sure, we really end up in an equilibrium state
                 if yr == 1866:
-                    mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
+                    mod = tasks.run_random_climate(gdir, climate_filename=climate_filename, climate_input_filesuffix=input_suffix, y0=yr,
                                              nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                              seed=seed)
                 # for all other years the previous equilibrium state is the initial condition and we use the stopping criteria
@@ -103,7 +110,7 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
                     fmod = FileModel(fp)
                     no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                     fmod.run_until(no_nan_yr)
-                    mod = tasks.run_random_climate(gdir, climate_filename='gcm_data', climate_input_filesuffix=gcm, y0=yr,
+                    mod = tasks.run_random_climate(gdir, climate_filename=climate_filename, climate_input_filesuffix=input_suffix, y0=yr,
                                                    nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                                    stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
                     # if run was sucessfull, we don't need the file for init_mod any more --> remove file
@@ -132,19 +139,11 @@ def equilibrium_runs_yearly(gdir, gcm_list,years):
     diag_ds.attrs['calendar'] = '365-day no leap'
     diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
     diag_ds.to_netcdf(os.path.join(gdir.dir, 'model_diagnostics_merged.nc'))
-    
+
     logging.warning(gdir.rgi_id+' finished')
 
     return eq_vol, eq_area, t_array
 
-def select_subset(n,job_nr,max_len):
-    l = []
-    for i in range(0,math.ceil(max_len/n),n):
-        x = int(n*i+(n*job_nr))
-        l=l+list(range(x,x+n))
-    l = np.array(l)
-    l = l[l<max_len]
-    return l
 
 if __name__ == '__main__':
 
@@ -160,7 +159,7 @@ if __name__ == '__main__':
         OUT_DIR = os.environ.get("OUTDIR")
         REGION = str(os.environ.get('REGION')).zfill(2)
         JOB_NR = float(os.environ.get('JOB_NR'))
-        cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6')
+        cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6_merge')
     else:
         cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
         cmip6_path = 'cmip6'
@@ -197,13 +196,12 @@ if __name__ == '__main__':
     rgidf = rgidf.iloc[[JOB_NR]]
 
     # Go - initialize glacier directories
-    gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=3, reset=False)
+    gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=5)
     #gdirs = workflow.init_glacier_regions()
 
     # read (reset=False) or process cmip6 data (reset=True)
     gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
-    years = range(1866, 1999)
 
-    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, years=years)
-    ds = compile_gcm_output(gdirs, gcm_list,years, res, JOB_NR)
+    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list)
+    ds = compile_gcm_output(gdirs, gcm_list, res)
 
