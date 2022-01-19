@@ -73,7 +73,7 @@ def read_cmip6_data(path, gdirs, reset=False):
             l.append(suffix)
     return l
 
-def equilibrium_runs_yearly(gdir, gcm_list):
+def equilibrium_runs_yearly(gdir, gcm_list, n_years):
     logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     # maximum 2019-1866=153 years
@@ -102,7 +102,7 @@ def equilibrium_runs_yearly(gdir, gcm_list):
                 # in the first year (1866), we don't use the stopping criteria to make sure, we really end up in an equilibrium state
                 if yr == 1866:
                     mod = tasks.run_random_climate(gdir, climate_filename=climate_filename, climate_input_filesuffix=input_suffix, y0=yr,
-                                             nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
+                                             nyears=n_years, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                              seed=seed)
                 # for all other years the previous equilibrium state is the initial condition and we use the stopping criteria
                 else:
@@ -111,7 +111,7 @@ def equilibrium_runs_yearly(gdir, gcm_list):
                     no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                     fmod.run_until(no_nan_yr)
                     mod = tasks.run_random_climate(gdir, climate_filename=climate_filename, climate_input_filesuffix=input_suffix, y0=yr,
-                                                   nyears=2000, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
+                                                   nyears=n_years, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                                    stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
                     # if run was sucessfull, we don't need the file for init_mod any more --> remove file
                     os.remove(fp)
@@ -203,6 +203,9 @@ if __name__ == '__main__':
     # read (reset=False) or process cmip6 data (reset=True)
     gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
 
-    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list)
+    n_years = 2000
+    if REGION in ['01', '03', '04', '05', '06', '07', '09', '17']:
+        n_years = 5000
+    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, n_years=n_years)
     ds = compile_gcm_output(gdirs, gcm_list, res)
 
