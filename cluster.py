@@ -99,8 +99,8 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
             seed = random.randint(0, 2000)
             t0 = time.time()
             try:
-                # in the first year (1866), we don't use the stopping criteria to make sure, we really end up in an equilibrium state
-                if yr == 1866:
+                # in the first year, we don't use the stopping criteria to make sure, we really end up in an equilibrium state
+                if yr == years[0]:
                     mod = tasks.run_random_climate(gdir, climate_filename=climate_filename, climate_input_filesuffix=input_suffix, y0=yr,
                                              nyears=n_years, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                              seed=seed)
