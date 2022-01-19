@@ -184,9 +184,10 @@ if __name__ == '__main__':
     rgidf = rgidf[rgidf.Connect != 2]
 
     # exculde glaciers that failed during preprocessing
-    url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/centerlines/qc3/pcp2.5/no_match/RGI62/b_160/L3/summary/'
+    prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/elev_bands/qc3/pcp2.5/no_match/'
+    url = os.path.join(prepro_url, 'RGI62/b_160/L5/summary/')
     fpath = utils.file_downloader(url + f'glacier_statistics_{REGION}.csv')
-    stat = pd.read_csv(fpath, index_col=0,low_memory=False)
+    stat = pd.read_csv(fpath, index_col=0, low_memory=False)
     rgidf = rgidf[~rgidf.RGIId.isin(stat.error_task.dropna().index)].reset_index()
 
     #subset_indices = select_subset(N,JOB_NR,len(rgidf))
