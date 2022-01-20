@@ -151,6 +151,7 @@ if __name__ == '__main__':
     cfg.initialize()
     cfg.set_logging_config(logging_level='WARNING')
     ON_CLUSTER = True
+    GEOD_CALIB=False
 
     # Local paths
     if ON_CLUSTER:
@@ -170,10 +171,6 @@ if __name__ == '__main__':
     # store model geometry
     cfg.PARAMS['store_model_geometry'] = True
 
-    # How many grid points around the glacier?
-    # Make it large if you expect your glaciers to grow large
-    cfg.PARAMS['border'] = 160
-
     # RGI file
     path = utils.get_rgi_region_file(REGION, version='61')
     rgidf = gpd.read_file(path)
@@ -183,22 +180,25 @@ if __name__ == '__main__':
     rgidf = rgidf[rgidf.TermType == 0]
     rgidf = rgidf[rgidf.Connect != 2]
 
+    if GEOD_CALIB:
+        cfg.PARAMS['border'] = 240
+        prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/CRU/elev_bands/qc0/pcp2.5/match_geod_pergla/'
+        url = os.path.join(prepro_url, 'RGI62/b_240/L5/summary/')
+    else:
+        cfg.PARAMS['border'] = 160
+        prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/elev_bands/qc3/pcp2.5/no_match/'
+        url = os.path.join(prepro_url, 'RGI62/b_160/L5/summary/')
+
     # exculde glaciers that failed during preprocessing
-    prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/elev_bands/qc3/pcp2.5/no_match/'
-    url = os.path.join(prepro_url, 'RGI62/b_160/L5/summary/')
     fpath = utils.file_downloader(url + f'glacier_statistics_{REGION}.csv')
     stat = pd.read_csv(fpath, index_col=0, low_memory=False)
     rgidf = rgidf[~rgidf.RGIId.isin(stat.error_task.dropna().index)].reset_index()
-
-    #subset_indices = select_subset(N,JOB_NR,len(rgidf))
-    #rgidf = rgidf.iloc[subset_indices]
 
     #select glacier by JOB_NR
     rgidf = rgidf.iloc[[JOB_NR]]
 
     # Go - initialize glacier directories
-    gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=5)
-    #gdirs = workflow.init_glacier_regions()
+    gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=5, prepro_base_url=prepro_url)
 
     # read (reset=False) or process cmip6 data (reset=True)
     gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
