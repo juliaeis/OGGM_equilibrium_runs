@@ -77,9 +77,9 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
     logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     # maximum 2019-1866=153 years
-    eq_vol = np.zeros((len(gcm_list), 153))*np.nan
-    eq_area = np.zeros((len(gcm_list), 153))*np.nan
-    t_array = np.zeros((len(gcm_list), 153))*np.nan
+    eq_vol = np.zeros((len(gcm_list), 154))*np.nan
+    eq_area = np.zeros((len(gcm_list), 154))*np.nan
+    t_array = np.zeros((len(gcm_list), 154))*np.nan
 
     #create dataset that merges all model_diagnostic files of this glacier
     diag_ds = xr.Dataset()
