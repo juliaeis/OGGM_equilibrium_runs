@@ -94,7 +94,7 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
 
         c = xr.open_dataset(gdir.get_filepath(climate_filename, filesuffix=input_suffix))
         years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
-        for j, yr in enumerate(years):
+        for yr in enumerate(years):
             random.seed(yr)
             seed = random.randint(0, 2000)
             t0 = time.time()
@@ -115,6 +115,7 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
                                                    stop_criterion=f, seed=seed, init_model_fls=fmod.fls)
                     # if run was sucessfull, we don't need the file for init_mod any more --> remove file
                     os.remove(fp)
+                j = list(range(1866,2020)).index(yr)
                 eq_vol[i, j] = mod.volume_km3
                 eq_area[i, j] = mod.area_km2
                 t_array[i,j] = time.time()-t0
