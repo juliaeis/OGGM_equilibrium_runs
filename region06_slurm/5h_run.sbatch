@@ -1,14 +1,15 @@
 #!/bin/bash
 #
-#SBATCH --job-name=12_eq
+#SBATCH --job-name=06_eq
 #SBATCH --qos=normal
 #SBATCH --ntasks=1
 #SBATCH --ntasks-per-core=1
 #SBATCH --cpus-per-task=2
-#SBATCH --array=1478-1548
-#SBATCH --time=3-00:00:00
+#SBATCH --array=0-436
+#SBATCH --time=0-05:00:00
 #SBATCH --mail-user=jeis@uni-bremen.de
 #SBATCH --mail-type=ALL
+
 
 # Abort whenever a single step fails. Without this, bash will just continue on errors.
 
@@ -33,7 +34,7 @@ export OUTDIR
 
 echo "Workdir for this run: $WORKDIR"
 
-export REGION=12
+export REGION=06
 export JOB_NR=$SLURM_ARRAY_TASK_ID
 
 export OGGM_DOWNLOAD_CACHE="/home/data/download"
