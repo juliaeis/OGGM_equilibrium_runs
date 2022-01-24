@@ -3,9 +3,8 @@
 #SBATCH --job-name=12_eq
 #SBATCH --qos=normal
 #SBATCH --ntasks=1
-#SBATCH --ntasks-per-core=1
 #SBATCH --cpus-per-task=2
-#SBATCH --array=0-1459
+#SBATCH --array=0-1477
 #SBATCH --time=0-05:00:00
 #SBATCH --mail-user=jeis@uni-bremen.de
 #SBATCH --mail-type=ALL
@@ -21,7 +20,7 @@ conda activate oggm_env
 # On every node, when slurm starts a job, it will make sure the directory
 # /work/username exists and is writable by the jobs user.
 # We create a sub-directory there for this job to store its runtime data at.
-export WORKDIR="/work/${SLURM_JOB_USER}/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}/run_CMIP6"
+export WORKDIR="/work/${SLURM_JOB_USER}/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}/run_CMIP6_geod"
 export PROJDIR="$HOME/OGGM_equilibrium_runs"
 export OUTDIR="$PROJDIR/out/"
 
