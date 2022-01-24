@@ -151,7 +151,7 @@ if __name__ == '__main__':
     cfg.initialize()
     cfg.set_logging_config(logging_level='WARNING')
     ON_CLUSTER = True
-    GEOD_CALIB=False
+    GEOD_CALIB=True
 
     # Local paths
     if ON_CLUSTER:
@@ -182,6 +182,9 @@ if __name__ == '__main__':
 
     if GEOD_CALIB:
         cfg.PARAMS['border'] = 240
+        cfg.PARAMS['climate_qc_months']=0
+        cfg.PARAMS['hydro_month_nh']=1
+        cfg.PARAMS['hydro_month_sh']=1
         prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/CRU/elev_bands/qc0/pcp2.5/match_geod_pergla/'
         url = os.path.join(prepro_url, 'RGI62/b_240/L5/summary/')
     else:
