@@ -3,7 +3,6 @@
 #SBATCH --job-name=04_eq
 #SBATCH --qos=normal
 #SBATCH --ntasks=1
-#SBATCH --ntasks-per-core=1
 #SBATCH --cpus-per-task=2
 #SBATCH --array=5830-7325
 #SBATCH --time=3-00:00:00
