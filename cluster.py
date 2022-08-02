@@ -76,7 +76,7 @@ def read_cmip6_data(path, gdirs, reset=False):
 def equilibrium_runs_yearly(gdir, gcm_list, n_years):
     logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
-    # maximum 2019-1866=153 years
+    # maximum 2019-1866=154 years
     eq_vol = np.zeros((len(gcm_list), 154))*np.nan
     eq_area = np.zeros((len(gcm_list), 154))*np.nan
     t_array = np.zeros((len(gcm_list), 154))*np.nan
@@ -94,7 +94,7 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
 
         c = xr.open_dataset(gdir.get_filepath(climate_filename, filesuffix=input_suffix))
         years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
-        for yr in enumerate(years):
+        for yr in years:
             random.seed(yr)
             seed = random.randint(0, 2000)
             t0 = time.time()
@@ -151,26 +151,39 @@ if __name__ == '__main__':
     # Initialize OGGM and set up the default run parameters
     cfg.initialize()
     cfg.set_logging_config(logging_level='WARNING')
-    ON_CLUSTER = True
-    GEOD_CALIB=True
+ 
+    RUN_FAILED=True
 
     # Local paths
-    if ON_CLUSTER:
-        WORKING_DIR = os.environ.get("WORKDIR")
-        cfg.PATHS['working_dir'] = WORKING_DIR
-        OUT_DIR = os.environ.get("OUTDIR")
-        REGION = str(os.environ.get('REGION')).zfill(2)
-        JOB_NR = float(os.environ.get('JOB_NR'))
-        cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6_merge')
-    else:
-        cfg.PATHS['working_dir'] = os.path.join('run_CMIP6')
-        cmip6_path = 'cmip6'
+
+    WORKING_DIR = os.environ.get("WORKDIR")
+    cfg.PATHS['working_dir'] = WORKING_DIR
+    OUT_DIR = os.environ.get("OUTDIR")
+    REGION = str(os.environ.get('REGION')).zfill(2)
+    JOB_NR = float(os.environ.get('JOB_NR'))
+    cmip6_path = os.path.join(os.environ.get("PROJDIR"),'cmip6_select')
 
     # Use multiprocessing?
     cfg.PARAMS['use_multiprocessing'] = True
 
     # store model geometry
     cfg.PARAMS['store_model_geometry'] = True
+    
+    # climate settings
+    cfg.PARAMS['hydro_month_nh']=1
+    cfg.PARAMS['hydro_month_sh']=1
+    cfg.PARAMS['climate_qc_months']=0
+    
+    # links to preprocessed directories
+    cfg.PARAMS['border'] = 240
+    prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/CRU/elev_bands/qc0/pcp2.5/match_geod_pergla/'
+    
+    if RUN_FAILED:
+        cfg.PARAMS['border'] = 480
+        prepro_url = 'https://cluster.klima.uni-bremen.de/~julia/'
+    
+    # path to the statistic file
+    url = os.path.join(prepro_url, 'RGI62/b_'+str(cfg.PARAMS['border'])+'/L5/summary/')
 
     # RGI file
     path = utils.get_rgi_region_file(REGION, version='61')
@@ -179,24 +192,17 @@ if __name__ == '__main__':
 
     # exclude non-landterminating glaciers
     rgidf = rgidf[rgidf.TermType == 0]
-    rgidf = rgidf[rgidf.Connect != 2]
-
-    if GEOD_CALIB:
-        cfg.PARAMS['border'] = 240
-        cfg.PARAMS['climate_qc_months']=0
-        cfg.PARAMS['hydro_month_nh']=1
-        cfg.PARAMS['hydro_month_sh']=1
-        prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/CRU/elev_bands/qc0/pcp2.5/match_geod_pergla/'
-        url = os.path.join(prepro_url, 'RGI62/b_240/L5/summary/')
-    else:
-        cfg.PARAMS['border'] = 160
-        prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/elev_bands/qc3/pcp2.5/no_match/'
-        url = os.path.join(prepro_url, 'RGI62/b_160/L5/summary/')
+    rgidf = rgidf[rgidf.Connect != 2]  
 
     # exculde glaciers that failed during preprocessing
     fpath = utils.file_downloader(url + f'glacier_statistics_{REGION}.csv')
     stat = pd.read_csv(fpath, index_col=0, low_memory=False)
     rgidf = rgidf[~rgidf.RGIId.isin(stat.error_task.dropna().index)].reset_index()
+    
+    # if RUN_FAILED filter for the failed ids
+    if RUN_FAILED:
+        p = os.path.join('failed_'+REGION+'.txt')
+        rgidf = rgidf[rgidf.RGIId.isin(pd.read_csv(p).rgi_id.values)]
 
     #select glacier by JOB_NR
     rgidf = rgidf.iloc[[JOB_NR]]
