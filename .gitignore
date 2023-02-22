@@ -27,3 +27,4 @@ eggs
 # following directories
 cmip6/*
 run_CMIP6/*
+*slurm/*
