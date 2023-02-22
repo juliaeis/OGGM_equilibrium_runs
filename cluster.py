@@ -1,4 +1,5 @@
 # Libs
+import sys
 import os
 import matplotlib.pyplot as plt
 import xarray as xr
@@ -18,7 +19,7 @@ from oggm import tasks, workflow, utils
 from oggm.workflow import execute_entity_task
 from oggm.core.flowline import equilibrium_stop_criterion, FileModel
 
-def compile_gcm_output(gdirs, list, results):
+def compile_gcm_output(gdirs, gcm_list, results):
 
     dir = os.path.join(cfg.PATHS['working_dir'], 'region_'+gdirs[0].rgi_region)
     utils.mkdir(dir)
@@ -37,7 +38,7 @@ def compile_gcm_output(gdirs, list, results):
     # Coordinates
     ds.coords['rgi_id'] = ('rgi_id', [gd.rgi_id for gd in gdirs])
     ds['rgi_id'].attrs['description'] = 'RGI glacier identifier'
-    ds.coords['gcm'] = ('gcm', list)
+    ds.coords['gcm'] = ('gcm', gcm_list)
     ds['gcm'].attrs['description'] = ' CMIP6 scenario'
     ds.coords['year'] = ('year', range(1866,2020))
     ds['year'].attrs['description'] = 'central year of random climate used to create the equilibrium glacier'
@@ -59,21 +60,17 @@ def compile_gcm_output(gdirs, list, results):
     return ds
 
 
-def read_cmip6_data(path, gdirs, reset=False):
-    l = ['CRU']
+def process_cmip6_data(path, gdirs, gcms, reset=False):
     for file in os.listdir(os.path.join(path,'tas')):
-        if file.endswith('.nc'):
-            name = file.split('_')[0]
-            suffix = name.split('.')[2]
+        name = file.split('_')[0]
+        suffix = name.split('.')[2]
+        if suffix in gcms:
             tas_file = os.path.join(path, 'tas', file)
             pr_file = os.path.join(path, 'pr', name + '_pr.nc')
             if reset:
-                execute_entity_task(tasks.process_cmip_data, gdirs, filesuffix=suffix, fpath_temp=tas_file,
-                                    fpath_precip=pr_file)
-            l.append(suffix)
-    return l
+                execute_entity_task(tasks.process_cmip_data, gdirs, filesuffix=suffix, fpath_temp=tas_file, fpath_precip=pr_file)
 
-def equilibrium_runs_yearly(gdir, gcm_list, n_years):
+def equilibrium_runs_yearly(gdir, gcm_list, n_years, invert_years=False):
     logging.warning(gdir.rgi_id+' started')
     f = partial(equilibrium_stop_criterion, n_years_specmb=100, spec_mb_threshold=10)
     # maximum 2019-1866=154 years
@@ -94,19 +91,23 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
 
         c = xr.open_dataset(gdir.get_filepath(climate_filename, filesuffix=input_suffix))
         years =  range(c.time.to_series().iloc[0].year + 16, c.time.to_series().iloc[-1].year - 14)
-        for yr in years:
+        
+        if invert_years:
+            years = years[::-1]
+            
+        for k,yr in enumerate(years):
             random.seed(yr)
             seed = random.randint(0, 2000)
             t0 = time.time()
             try:
                 # in the first year, we don't use the stopping criteria to make sure, we really end up in an equilibrium state
-                if yr == years[0]:
+                if k == 0:
                     mod = tasks.run_random_climate(gdir, climate_filename=climate_filename, climate_input_filesuffix=input_suffix, y0=yr,
                                              nyears=n_years, unique_samples=True, output_filesuffix=gcm + '_' + str(yr),
                                              seed=seed)
-                # for all other years the previous equilibrium state is the initial condition and we use the stopping criteria
+                # for all other years the previous equilibrium state as the initial condition and we use the stopping criteria
                 else:
-                    fp = gdir.get_filepath('model_geometry', filesuffix=gcm + '_' + str(yr - 1))
+                    fp = gdir.get_filepath('model_geometry', filesuffix=gcm + '_' + str(years[k-1]))
                     fmod = FileModel(fp)
                     no_nan_yr = fmod.volume_m3_ts().dropna().index[-1]
                     fmod.run_until(no_nan_yr)
@@ -119,8 +120,10 @@ def equilibrium_runs_yearly(gdir, gcm_list, n_years):
                 eq_vol[i, j] = mod.volume_km3
                 eq_area[i, j] = mod.area_km2
                 t_array[i,j] = time.time()-t0
-            except:
-                pass
+            
+            except Exception as e:
+                print('Failed in'+gcm+' at year '+str(yr),'with Error:'+str(e))
+                break
 
             # read, merge and delete the current model_diagnotics file
             try:
@@ -152,7 +155,7 @@ if __name__ == '__main__':
     cfg.initialize()
     cfg.set_logging_config(logging_level='WARNING')
  
-    RUN_FAILED=True
+    REPEAT_FAILED=True
 
     # Local paths
 
@@ -170,52 +173,62 @@ if __name__ == '__main__':
     cfg.PARAMS['store_model_geometry'] = True
     
     # climate settings
-    cfg.PARAMS['hydro_month_nh']=1
-    cfg.PARAMS['hydro_month_sh']=1
-    cfg.PARAMS['climate_qc_months']=0
+    cfg.PARAMS['climate_qc_months'] = 0
+    cfg.PARAMS['baseline_climate'] = 'CRU'
+    cfg.PARAMS['use_tstar_calibration'] = False  # This is new and is false per default but still
+    cfg.PARAMS['use_winter_prcp_factor'] = False
+    cfg.PARAMS['prcp_scaling_factor'] = 2.5  # for CRU
+    cfg.PARAMS['hydro_month_nh'] = 1
+    cfg.PARAMS['hydro_month_sh'] = 1
+    cfg.PARAMS['min_mu_star'] = 20
+    cfg.PARAMS['max_mu_star'] = 600
     
-    # links to preprocessed directories
+    # set border parameter
     cfg.PARAMS['border'] = 240
-    prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L3-L5_files/CRU/elev_bands/qc0/pcp2.5/match_geod_pergla/'
+    # link to the preprocessed directories
+    prepro_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L3-L5_files/CRU/elev_bands/qc0/pcp2.5/match_geod_pergla/'
     
-    if RUN_FAILED:
-        cfg.PARAMS['border'] = 480
-        prepro_url = 'https://cluster.klima.uni-bremen.de/~julia/'
-    
-    # path to the statistic file
-    url = os.path.join(prepro_url, 'RGI62/b_'+str(cfg.PARAMS['border'])+'/L5/summary/')
+    if not REPEAT_FAILED:
+        
+        # RGI file
+        path = utils.get_rgi_region_file(REGION, version='61')
+        rgidf = gpd.read_file(path)
+        rgidf = rgidf.sort_values('Area', ascending=True)
 
-    # RGI file
-    path = utils.get_rgi_region_file(REGION, version='61')
-    rgidf = gpd.read_file(path)
-    rgidf = rgidf.sort_values('Area', ascending=True)
+        # exclude non-landterminating glaciers
+        rgidf = rgidf[rgidf.TermType == 0]
+        rgidf = rgidf[rgidf.Connect != 2]  
 
-    # exclude non-landterminating glaciers
-    rgidf = rgidf[rgidf.TermType == 0]
-    rgidf = rgidf[rgidf.Connect != 2]  
+        # path to the statistic file
+        url = os.path.join(prepro_url, 'RGI62/b_'+str(cfg.PARAMS['border'])+'/L5/summary/')
 
-    # exculde glaciers that failed during preprocessing
-    fpath = utils.file_downloader(url + f'glacier_statistics_{REGION}.csv')
-    stat = pd.read_csv(fpath, index_col=0, low_memory=False)
-    rgidf = rgidf[~rgidf.RGIId.isin(stat.error_task.dropna().index)].reset_index()
-    
-    # if RUN_FAILED filter for the failed ids
-    if RUN_FAILED:
-        p = os.path.join('failed_'+REGION+'.txt')
-        rgidf = rgidf[rgidf.RGIId.isin(pd.read_csv(p).rgi_id.values)]
-
-    #select glacier by JOB_NR
-    rgidf = rgidf.iloc[[JOB_NR]]
+        # exculde glaciers that failed during preprocessing
+        fpath = utils.file_downloader(url + f'glacier_statistics_{REGION}.csv')
+        stat = pd.read_csv(fpath, index_col=0, low_memory=False)
+        rgidf = rgidf[~rgidf.RGIId.isin(stat.error_task.dropna().index)].reset_index()
+        
+        #select glacier by JOB_NR
+        rgi_id = rgidf.iloc[[JOB_NR]].index
+        gcm_list = ['CRU', 'CanESM5', 'NorESM2-MM', 'FGOALS-f3-L', 'GISS-E2-2-H', 'BCC-CSM2-MR', 'MRI-ESM2-0',
+                    'E3SM-1-1', 'CESM2', 'MPI-ESM1-2-HR', 'ACCESS-CM2', 'EC-Earth3', 'IPSL-CM6A-LR-INCA', 'MIROC6']
+    else:
+        # read file with failed glaciers
+        failed = pd.read_csv('../run_reverse.txt',index_col=0)
+        #filter for THIS region
+        failed = failed[failed.index.str.startswith('RGI60-'+REGION)]
+        # select glacier by JOB_NR
+        rgi_id = failed.iloc[[JOB_NR]].index
+        gcm_list = failed[failed>0].iloc[[JOB_NR]].dropna(axis=1).columns.to_numpy()
 
     # Go - initialize glacier directories
-    gdirs = workflow.init_glacier_regions(rgidf, from_prepro_level=5, prepro_base_url=prepro_url)
+    gdirs = workflow.init_glacier_regions(rgi_id, from_prepro_level=5, prepro_base_url=prepro_url)
 
-    # read (reset=False) or process cmip6 data (reset=True)
-    gcm_list = read_cmip6_data(cmip6_path, gdirs, reset=True)
+    # process cmip6 data
+    process_cmip6_data(cmip6_path, gdirs, gcms=gcm_list, reset=True)
 
     n_years = 2000
     if REGION in ['01', '03', '04', '05', '06', '07', '09', '17']:
         n_years = 5000
-    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, n_years=n_years)
+    res = execute_entity_task(equilibrium_runs_yearly, gdirs, gcm_list=gcm_list, n_years=n_years, invert_years=True)
     ds = compile_gcm_output(gdirs, gcm_list, res)
 
